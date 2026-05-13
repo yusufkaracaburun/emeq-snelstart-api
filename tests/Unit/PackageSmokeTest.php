@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Emeq\SnelstartApi\Auth\AuthConnector;
+use Emeq\SnelstartApi\Auth\ClientKeyAuthenticator;
 use Emeq\SnelstartApi\Auth\LaravelTokenCache;
 use Emeq\SnelstartApi\Contracts\SnelstartCredentialResolver;
 use Emeq\SnelstartApi\Contracts\TokenCacheStore;
@@ -19,9 +21,17 @@ it('registers the service provider', function (): void {
 
 it('publishes the snelstart config', function (): void {
     expect(config('snelstart.base_url'))->toBe('https://b2bapi.snelstart.nl/v2')
-        ->and(config('snelstart.auth_url'))->toBe('https://auth.snelstart.nl/b2b/token')
+        ->and(config('snelstart.auth_base_url'))->toBe('https://auth.snelstart.nl')
         ->and(config('snelstart.cache.prefix'))->toBe('snelstart_token_')
         ->and(config('snelstart.cache.ttl_safety_margin'))->toBe(60);
+});
+
+it('binds AuthConnector as a singleton at the configured auth_base_url', function (): void {
+    $first  = app(AuthConnector::class);
+    $second = app(AuthConnector::class);
+
+    expect($first)->toBe($second)
+        ->and($first->resolveBaseUrl())->toBe('https://auth.snelstart.nl');
 });
 
 it('binds the token cache contract to the laravel implementation', function (): void {
@@ -44,7 +54,8 @@ it('resolves the main Snelstart client when a resolver is bound', function (): v
     expect($snelstart)->toBeInstanceOf(Snelstart::class)
         ->and($snelstart->credentials()->clientKey)->toBe('test-client-key')
         ->and($snelstart->credentials()->subscriptionKey)->toBe('test-subscription-key')
-        ->and($snelstart->tokenCache())->toBeInstanceOf(LaravelTokenCache::class);
+        ->and($snelstart->tokenCache())->toBeInstanceOf(LaravelTokenCache::class)
+        ->and($snelstart->authenticator())->toBeInstanceOf(ClientKeyAuthenticator::class);
 });
 
 it('resolves the Snelstart facade through the container', function (): void {
