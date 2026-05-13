@@ -9,6 +9,7 @@ use Emeq\SnelstartApi\Contracts\SnelstartCredentialResolver;
 use Emeq\SnelstartApi\Contracts\TokenCacheStore;
 use Emeq\SnelstartApi\Exceptions\MissingCredentialResolverException;
 use Emeq\SnelstartApi\Facades\Snelstart as SnelstartFacade;
+use Emeq\SnelstartApi\Http\SnelstartConnector;
 use Emeq\SnelstartApi\Snelstart;
 use Emeq\SnelstartApi\SnelstartServiceProvider;
 use Emeq\SnelstartApi\Tests\Support\FakeCredentialResolver;
@@ -56,6 +57,15 @@ it('resolves the main Snelstart client when a resolver is bound', function (): v
         ->and($snelstart->credentials()->subscriptionKey)->toBe('test-subscription-key')
         ->and($snelstart->tokenCache())->toBeInstanceOf(LaravelTokenCache::class)
         ->and($snelstart->authenticator())->toBeInstanceOf(ClientKeyAuthenticator::class);
+});
+
+it('builds a SnelstartConnector at the configured base URL', function (): void {
+    app()->bind(SnelstartCredentialResolver::class, fn () => FakeCredentialResolver::with());
+
+    $connector = app(Snelstart::class)->connector();
+
+    expect($connector)->toBeInstanceOf(SnelstartConnector::class)
+        ->and($connector->resolveBaseUrl())->toBe('https://b2bapi.snelstart.nl/v2');
 });
 
 it('resolves the Snelstart facade through the container', function (): void {

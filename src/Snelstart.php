@@ -9,24 +9,31 @@ use Emeq\SnelstartApi\Auth\ClientKeyAuthenticator;
 use Emeq\SnelstartApi\Contracts\SnelstartCredentialResolver;
 use Emeq\SnelstartApi\Contracts\TokenCacheStore;
 use Emeq\SnelstartApi\Data\SnelstartCredentials;
+use Emeq\SnelstartApi\Http\SnelstartConnector;
 
 /**
  * Main client + facade target.
  *
- * Holds the wiring (resolver + cache + authenticator factory) that resource
- * accessors will use in Fase 4 (Saloon connector) and Fase 7 (resource
- * classes). For now exposes just enough surface for the ServiceProvider
- * smoke-tests and an authenticator() helper.
+ * Builds per-tenant Saloon Connectors on demand: every call to connector()
+ * resolves the current credentials via the bound resolver and constructs a
+ * fresh SnelstartConnector wired with a tenant-specific authenticator. The
+ * underlying TokenCacheStore and AuthConnector are singletons, so the token
+ * cache is shared across connectors (keyed by credential fingerprint).
+ *
+ * Resource accessors in Fase 7 (`relaties()`, `verkoopfacturen()`, etc.) will
+ * delegate to `connector()` under the hood.
  */
 class Snelstart
 {
     /**
      * @param  Closure(SnelstartCredentials): ClientKeyAuthenticator  $authenticatorFactory
+     * @param  Closure(ClientKeyAuthenticator): SnelstartConnector  $connectorFactory
      */
     public function __construct(
         private readonly SnelstartCredentialResolver $resolver,
         private readonly TokenCacheStore $tokenCache,
         private readonly Closure $authenticatorFactory,
+        private readonly Closure $connectorFactory,
     ) {
     }
 
@@ -41,12 +48,19 @@ class Snelstart
     }
 
     /**
-     * Build a ClientKeyAuthenticator for the *current* resolved credentials.
-     * The Saloon connector built in Fase 4 will pull this on every request via
-     * defaultAuth().
+     * Build an authenticator for the current resolved credentials.
      */
     public function authenticator(): ClientKeyAuthenticator
     {
         return ($this->authenticatorFactory)($this->credentials());
+    }
+
+    /**
+     * Build a Saloon Connector for the current resolved credentials. This is
+     * the entry point for every resource-API call.
+     */
+    public function connector(): SnelstartConnector
+    {
+        return ($this->connectorFactory)($this->authenticator());
     }
 }

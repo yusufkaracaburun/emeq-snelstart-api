@@ -10,6 +10,7 @@ use Emeq\SnelstartApi\Auth\LaravelTokenCache;
 use Emeq\SnelstartApi\Contracts\SnelstartCredentialResolver;
 use Emeq\SnelstartApi\Contracts\TokenCacheStore;
 use Emeq\SnelstartApi\Exceptions\MissingCredentialResolverException;
+use Emeq\SnelstartApi\Http\SnelstartConnector;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -60,6 +61,30 @@ class SnelstartServiceProvider extends PackageServiceProvider
             };
         });
 
+        // Factory for SnelstartConnector — reads config (base URL, timeout,
+        // retry) and accepts the per-tenant authenticator. Returns a fresh
+        // connector on each call; the underlying token cache + auth connector
+        // are singletons so cross-tenant state is hash-isolated, not
+        // object-isolated.
+        $this->app->bind('snelstart.connector-factory', function ($app) {
+            return function (ClientKeyAuthenticator $authenticator) use ($app): SnelstartConnector {
+                /** @var \Illuminate\Contracts\Config\Repository $config */
+                $config = $app->make('config');
+
+                /** @var array{times: int, sleep: int, on: list<int>} $retry */
+                $retry = (array) $config->get('snelstart.http.retry', ['times' => 3, 'sleep' => 1000, 'on' => [429, 500, 502, 503, 504]]);
+
+                return new SnelstartConnector(
+                    baseUrl: (string) $config->get('snelstart.base_url', 'https://b2bapi.snelstart.nl/v2'),
+                    authenticator: $authenticator,
+                    timeoutSeconds: (int) $config->get('snelstart.http.timeout', 30),
+                    tries: (int) $retry['times'],
+                    retryInterval: (int) $retry['sleep'],
+                    retryOnStatuses: array_map('intval', $retry['on']),
+                );
+            };
+        });
+
         // The credential resolver is intentionally NOT bound here — the host
         // app must provide its own. Resolving Snelstart::class without a
         // resolver throws a helpful exception rather than Laravel's generic
@@ -73,6 +98,7 @@ class SnelstartServiceProvider extends PackageServiceProvider
                 resolver: $app->make(SnelstartCredentialResolver::class),
                 tokenCache: $app->make(TokenCacheStore::class),
                 authenticatorFactory: $app->make('snelstart.authenticator-factory'),
+                connectorFactory: $app->make('snelstart.connector-factory'),
             );
         });
     }
