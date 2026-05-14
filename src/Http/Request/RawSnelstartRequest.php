@@ -51,6 +51,10 @@ class RawSnelstartRequest extends BaseRequest implements HasBody
      * @param  array<string, scalar|null>  $query    OData / query parameters, sent as-is
      * @param  array<string, mixed>|null   $body     JSON body for POST/PUT/PATCH (null for GET/DELETE)
      * @param  array<string, string>       $headers  Extra headers (Authorization + Ocp-Apim are set by the connector)
+     *
+     * Note: pass relative paths only. Saloon v4 blocks absolute URLs unless the
+     * request explicitly enables `$allowBaseUrlOverride = true` — by design,
+     * to prevent SSRF via consumer-controlled endpoints.
      */
     public function __construct(
         Method $method,
