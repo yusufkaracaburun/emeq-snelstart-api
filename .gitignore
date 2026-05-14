@@ -30,3 +30,6 @@ phpstan.neon
 testbench.yaml
 /docs
 /coverage
+
+# Planning scratchpads (lokale diagnostiek; horen niet in de SDK-repo)
+.planning-scratch/
