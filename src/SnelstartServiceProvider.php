@@ -10,7 +10,9 @@ use Emeq\SnelstartApi\Auth\LaravelTokenCache;
 use Emeq\SnelstartApi\Contracts\SnelstartCredentialResolver;
 use Emeq\SnelstartApi\Contracts\TokenCacheStore;
 use Emeq\SnelstartApi\Exceptions\MissingCredentialResolverException;
+use Emeq\SnelstartApi\Http\Middleware\VerifySnelstartSignature;
 use Emeq\SnelstartApi\Http\SnelstartConnector;
+use Illuminate\Routing\Router;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -21,6 +23,13 @@ class SnelstartServiceProvider extends PackageServiceProvider
         $package
             ->name('snelstart-api')
             ->hasConfigFile('snelstart');
+    }
+
+    public function packageBooted(): void
+    {
+        /** @var Router $router */
+        $router = $this->app->make(Router::class);
+        $router->aliasMiddleware('verify.snelstart.signature', VerifySnelstartSignature::class);
     }
 
     public function packageRegistered(): void

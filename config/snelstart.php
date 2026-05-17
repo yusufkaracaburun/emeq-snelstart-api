@@ -45,9 +45,40 @@ return [
         ],
     ],
 
-    'webhooks' => [
-        'route_prefix' => 'snelstart',
-        'middleware' => ['api'],
+    'webhook' => [
+        /*
+         * Primary HMAC-signing secret. Snelstart stuurt webhooks naar één
+         * partner-URL en signeert iedere payload met deze secret.
+         */
+        'secret' => env('SNELSTART_WEBHOOK_SECRET'),
+
+        /*
+         * Secondary secret tijdens een rotation-window. De middleware
+         * accepteert een signature die met óf `secret` óf `secret_next`
+         * gegenereerd is, zodat een Snelstart-portal-rotatie geen downtime
+         * vereist.
+         */
+        'secret_next' => env('SNELSTART_WEBHOOK_SECRET_NEXT'),
+
+        /*
+         * HTTP header die de HMAC-signature vervoert. Snelstart-respons
+         * 2026-05-17 bevestigde `X-SnelStart-Signature`. Env-overridable
+         * zodat een partner-protocol-wijziging géén code-deploy vereist.
+         */
+        'signature_header' => env('SNELSTART_WEBHOOK_SIGNATURE_HEADER', 'X-SnelStart-Signature'),
+
+        /*
+         * Hash-algoritme voor `hash_hmac`. Snelstart-respons 2026-05-17
+         * bevestigde HMAC-SHA256, hex-encoded over de raw request body.
+         */
+        'signature_algo' => env('SNELSTART_WEBHOOK_SIGNATURE_ALGO', 'sha256'),
+
+        /*
+         * Payload-key die het event-id draagt. Wordt door host-app gebruikt
+         * voor idempotency-tracking (unique-index op `(provider, event_id)`).
+         * Default is afgeleid uit Snelstart's OData-camelCase-conventie.
+         */
+        'event_id_key' => env('SNELSTART_WEBHOOK_EVENT_ID_KEY', 'eventId'),
     ],
 
 ];
